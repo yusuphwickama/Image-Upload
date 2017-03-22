@@ -5,7 +5,7 @@ import android.content.Context;
 
 /**
  * Created by: WickerLabs.Inc
- * Project title: T-Connect
+ * Project title: Image-Uploader
  * Time: 12:19 AM
  * Date: 2/13/2017
  * Website: http://www.wickerlabs.com

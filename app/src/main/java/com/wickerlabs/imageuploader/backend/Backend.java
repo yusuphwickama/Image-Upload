@@ -3,12 +3,14 @@ package com.wickerlabs.imageuploader.backend;
 import android.graphics.Bitmap;
 
 import com.wickerlabs.imageuploader.interfaces.UploadCallback;
-import com.wickerlabs.imageuploader.util.FileUtils;
+import com.wickerlabs.imageuploader.util.Constants;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.UUID;
 
+import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
@@ -37,35 +39,38 @@ public class Backend {
     }
 
     public void uploadImageFile(Bitmap bitmap, final UploadCallback callback) {
+        // Write image bytes to a ByteArray
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         bitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos);
-        String imageName = FileUtils.toFileSystemSafeName(UUID.randomUUID().toString().substring(0, 8).replaceAll("-", "").concat(".jpg"));
+        byte[] imageBytes = baos.toByteArray();
 
+        // Generate a random file name for the image
+        String randomChunk = UUID.randomUUID().toString().substring(0, 8).replaceAll("-", "");
+        String imageName = randomChunk.concat(".jpg");
+
+        // Build a multipart body & request
         RequestBody body = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
-                .addFormDataPart("imageFile", imageName, RequestBody.create(MediaType.parse("image/*"), baos.toByteArray()))
+                .addFormDataPart("imageFile", imageName, RequestBody.create(MediaType.parse("image/*"), imageBytes))
                 .build();
 
-        final Request request = new Request.Builder()
-                .url("http://flashesvs.com/backend/file_upload/upload.php")
+        Request request = new Request.Builder()
+                .url(Constants.URL)
                 .post(body)
                 .build();
 
-        new Thread(new Runnable() {
+        httpClient.newCall(request).enqueue(new Callback() {
             @Override
-            public void run() {
-                try {
-                    Response response = httpClient.newCall(request).execute();
-
-                    if (response.isSuccessful()) {
-                        callback.OnUploadComplete(response.body().string(), null);
-                    } else {
-                        callback.OnUploadComplete(null, new IOException("Error in getting response"));
-                    }
-                } catch (Exception e) {
-                    callback.OnUploadComplete(null, e);
-                }
+            public void onFailure(Call call, IOException e) {
+                // Notify the UploadCallback about the upload error
+                callback.OnUploadComplete(null, e);
             }
-        }).start();
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                // Notify the UploadCallback about the upload completion
+                callback.OnUploadComplete(response.body().string(), null);
+            }
+        });
     }
 }
